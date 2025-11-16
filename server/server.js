@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors');
 const dotenv = require('dotenv');
 
 // Load environment variables
@@ -6,47 +7,57 @@ dotenv.config();
 
 const app = express();
 
-// CRITICAL: Debug environment variables
-console.log('=== 🚀 VERCEL DEBUG START ===');
-console.log('All environment variables:', Object.keys(process.env));
-console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
-console.log('JWT_SECRET exists:', !!process.env.JWT_SECRET);
-console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('🚀 Server Stage 2: Adding Routes...');
+console.log('MONGODB_URI:', !!process.env.MONGODB_URI);
+console.log('JWT_SECRET:', !!process.env.JWT_SECRET);
 
-if (!process.env.MONGODB_URI) {
-  console.log('❌ CRITICAL: MONGODB_URI is MISSING');
-} else {
-  console.log('✅ MONGODB_URI is present');
-}
+// Middleware
+app.use(cors({
+  origin: [
+    'http://localhost:3000', 
+    'https://ai-website-monitoring.vercel.app',
+    'https://ai-website-monitoring-*.vercel.app'
+  ],
+  credentials: true,
+}));
 
-if (!process.env.JWT_SECRET) {
-  console.log('❌ CRITICAL: JWT_SECRET is MISSING');
-} else {
-  console.log('✅ JWT_SECRET is present');
-}
-console.log('=== 🔍 VERCEL DEBUG END ===');
-
-// Basic middleware
 app.use(express.json());
 
-// Simple route - NO DATABASE, NO ROUTES
-app.get('/', (req, res) => {
-  res.json({ 
-    success: true, 
-    message: 'Basic server is working!',
-    mongodb: !!process.env.MONGODB_URI,
-    jwt: !!process.env.JWT_SECRET
-  });
-});
-
+// Health check
 app.get('/health', (req, res) => {
   res.json({ 
     success: true, 
-    message: 'Health check OK',
+    message: 'Server is healthy! ✅',
     timestamp: new Date().toISOString()
   });
 });
 
-console.log('✅ Debug server setup completed');
+// Test route
+app.get('/api/test', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'API test route working!',
+    stage: 'Stage 2: Ready for auth'
+  });
+});
+
+// Add auth routes FIRST
+app.use('/api/auth', require('./routes/auth'));
+
+// Comment out other routes for now
+// app.use('/api/websites', require('./routes/websites'));
+// app.use('/api/monitor', require('./routes/monitor'));
+// app.use('/api/telegram', require('./routes/telegram'));
+
+app.get('/', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'AI Website Monitoring API 🚀',
+    status: 'Stage 2: Auth routes added',
+    nextStep: 'Test /api/auth endpoints'
+  });
+});
+
+console.log('✅ Stage 2 server setup completed');
 
 module.exports = app;
