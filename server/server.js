@@ -1,13 +1,14 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const connectDB = require('./config/database');
+const connectDB = require('./config/db'); // ✅ db.js ko require karo
 
+// Load environment variables
 dotenv.config();
 
 const app = express();
 
-console.log('🚀 Server starting with improved DB handling...');
+console.log('🚀 Server starting with correct DB import...');
 
 // Middleware
 app.use(cors({
@@ -21,55 +22,59 @@ app.use(cors({
 
 app.use(express.json());
 
-// Health check without DB dependency
+// Health check
 app.get('/health', (req, res) => {
   res.json({ 
     success: true, 
-    message: 'Server is running ✅',
-    timestamp: new Date().toISOString(),
-    database: 'Check connection separately'
+    message: 'Server is running! ✅',
+    timestamp: new Date().toISOString()
   });
 });
 
-// Test route without DB
+// Test route
 app.get('/api/test', (req, res) => {
   res.json({ 
     success: true, 
     message: 'API test route working!',
-    database: 'Not required for this route'
+    database: 'Correct import mode'
   });
 });
 
-// Auth routes with DB connection check
+// Add auth routes
 app.use('/api/auth', require('./routes/auth'));
-
-// Other routes (comment out temporarily if needed)
-app.use('/api/websites', require('./routes/websites'));
-// app.use('/api/monitor', require('./routes/monitor'));
-// app.use('/api/telegram', require('./routes/telegram'));
 
 app.get('/', (req, res) => {
   res.json({ 
     success: true, 
     message: 'AI Website Monitoring API 🚀',
-    status: 'Check MongoDB connection'
+    status: 'Correct DB import'
   });
 });
 
-// Database connection with timeout handling
+// Database connection with error handling
 const initializeDB = async () => {
   try {
-    console.log('🔄 Attempting MongoDB connection...');
+    console.log('🔄 Connecting to database...');
     await connectDB();
-    console.log('✅ Database connected - all routes active');
+    console.log('✅ Database connected successfully');
+    
+    // Setup cron jobs
+    try {
+      const { setupCronJobs } = require('./utils/cronJobs');
+      setupCronJobs();
+      console.log('✅ Cron jobs initialized');
+    } catch (cronError) {
+      console.warn('⚠️ Cron jobs failed:', cronError.message);
+    }
+    
   } catch (error) {
-    console.error('❌ Database connection failed - some features unavailable');
-    // Server continues running without DB
+    console.error('❌ Database connection failed:', error.message);
+    // Server continues without DB
   }
 };
 
 // Start DB connection
 initializeDB();
 
-console.log('✅ Server exported successfully');
+console.log('✅ Server setup completed');
 module.exports = app;
