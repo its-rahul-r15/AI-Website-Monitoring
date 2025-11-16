@@ -1,12 +1,44 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const mongoose = require('mongoose');
 
 dotenv.config();
 
 const app = express();
 
-console.log('=== 🚀 STAGE 3: ORIGINAL ROUTES ===');
+console.log('=== 🚀 STAGE 4: ADDING DATABASE ===');
+console.log('MONGODB_URI:', process.env.MONGODB_URI ? '✅ Present' : '❌ Missing');
+
+// Database connection state
+let dbConnected = false;
+
+// Simple database connection
+const connectDB = async () => {
+  try {
+    console.log('🔄 Connecting to MongoDB...');
+    
+    if (!process.env.MONGODB_URI) {
+      throw new Error('MONGODB_URI is missing');
+    }
+
+    await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 10000,
+    });
+
+    dbConnected = true;
+    console.log('✅ Database connected successfully');
+    
+  } catch (error) {
+    console.error('❌ Database connection failed:', error.message);
+    dbConnected = false;
+  }
+};
+
+// Start DB connection (non-blocking)
+connectDB();
 
 // Middleware
 app.use(cors({
@@ -20,25 +52,35 @@ app.use(cors({
 
 app.use(express.json());
 
-// Health check
+// Health check with DB status
 app.get('/health', (req, res) => {
   res.json({ 
     success: true, 
-    message: 'Stage 3: Original routes ✅',
-    timestamp: new Date().toISOString()
+    message: 'Stage 4: Database added',
+    timestamp: new Date().toISOString(),
+    database: dbConnected ? 'connected' : 'disconnected'
   });
 });
 
-// STEP 1: Add auth routes only first
-try {
-  console.log('🔄 Loading auth routes...');
-  app.use('/api/auth', require('./routes/auth'));
-  console.log('✅ Auth routes loaded');
-} catch (error) {
-  console.error('❌ Auth routes failed:', error.message);
-}
+// Database status check
+app.get('/api/db-status', (req, res) => {
+  res.json({
+    success: true,
+    database: {
+      connected: dbConnected,
+      state: mongoose.connection.readyState,
+      states: {
+        0: 'disconnected',
+        1: 'connected', 
+        2: 'connecting',
+        3: 'disconnecting'
+      }
+    }
+  });
+});
 
-// STEP 2: Test if auth routes work, then add other routes
+// Your original routes
+app.use('/api/auth', require('./routes/auth'));
 // app.use('/api/websites', require('./routes/websites'));
 // app.use('/api/monitor', require('./routes/monitor'));
 // app.use('/api/telegram', require('./routes/telegram'));
@@ -46,11 +88,10 @@ try {
 app.get('/', (req, res) => {
   res.json({ 
     success: true, 
-    message: 'Stage 3: Original auth routes loaded',
-    status: 'Testing auth routes'
+    message: 'Stage 4: Database connection added',
+    database: dbConnected ? '✅ Connected' : '❌ Disconnected'
   });
 });
 
-console.log('✅ Stage 3 server setup completed');
-
+console.log('✅ Stage 4 server setup completed');
 module.exports = app;
