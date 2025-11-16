@@ -16,8 +16,7 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: true,
-    minlength: 6,
-    select: false     // ⭐ MOST IMPORTANT FIX ⭐
+    minlength: 6
   },
   telegramChatId: {
     type: String,
@@ -34,14 +33,15 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Password hash before save
+// Password hash karna before save
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
+  
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });
 
-// Comparer
+// Password compare karne ka method
 userSchema.methods.correctPassword = async function(candidatePassword, userPassword) {
   return await bcrypt.compare(candidatePassword, userPassword);
 };
