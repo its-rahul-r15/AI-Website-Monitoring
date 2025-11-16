@@ -7,38 +7,61 @@ dotenv.config();
 
 const app = express();
 
-console.log('=== 🚀 STAGE 4: ADDING DATABASE ===');
-console.log('MONGODB_URI:', process.env.MONGODB_URI ? '✅ Present' : '❌ Missing');
+console.log('=== 🚀 STAGE 5: DATABASE DEBUGGING ===');
+console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
 
-// Database connection state
-let dbConnected = false;
-
-// Simple database connection
+// Database connection with detailed error logging
 const connectDB = async () => {
   try {
-    console.log('🔄 Connecting to MongoDB...');
+    console.log('🔄 Attempting MongoDB connection...');
     
     if (!process.env.MONGODB_URI) {
-      throw new Error('MONGODB_URI is missing');
+      throw new Error('MONGODB_URI environment variable is missing');
     }
 
-    await mongoose.connect(process.env.MONGODB_URI, {
+    console.log('MONGODB_URI first 50 chars:', process.env.MONGODB_URI.substring(0, 50) + '...');
+    
+    const conn = await mongoose.connect(process.env.MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 10000,
+      serverSelectionTimeoutMS: 15000,
     });
 
-    dbConnected = true;
-    console.log('✅ Database connected successfully');
+    console.log('✅ MongoDB Connected Successfully!');
+    console.log('Host:', conn.connection.host);
+    console.log('Database:', conn.connection.name);
+    
+    return true;
     
   } catch (error) {
-    console.error('❌ Database connection failed:', error.message);
-    dbConnected = false;
+    console.error('❌ MONGODB CONNECTION FAILED:');
+    console.error('Error Name:', error.name);
+    console.error('Error Message:', error.message);
+    
+    if (error.name === 'MongoNetworkError') {
+      console.error('🔧 Solution: Check Network Access in MongoDB Atlas - add IP 0.0.0.0/0');
+    } else if (error.name === 'MongoServerSelectionError') {
+      console.error('🔧 Solution: Check cluster status and credentials');
+    } else if (error.name === 'MongooseError') {
+      console.error('🔧 Solution: Check connection string format');
+    }
+    
+    return false;
   }
 };
 
-// Start DB connection (non-blocking)
-connectDB();
+// Database state
+let dbConnected = false;
+
+// Connect to database
+connectDB().then(connected => {
+  dbConnected = connected;
+  if (connected) {
+    console.log('🎉 Database ready - all features available');
+  } else {
+    console.log('⚠️ Database unavailable - some features disabled');
+  }
+});
 
 // Middleware
 app.use(cors({
@@ -52,46 +75,63 @@ app.use(cors({
 
 app.use(express.json());
 
-// Health check with DB status
+// Health check
 app.get('/health', (req, res) => {
   res.json({ 
     success: true, 
-    message: 'Stage 4: Database added',
-    timestamp: new Date().toISOString(),
-    database: dbConnected ? 'connected' : 'disconnected'
+    message: 'Server running',
+    database: dbConnected ? '✅ Connected' : '❌ Disconnected',
+    timestamp: new Date().toISOString()
   });
 });
 
-// Database status check
-app.get('/api/db-status', (req, res) => {
-  res.json({
-    success: true,
-    database: {
-      connected: dbConnected,
-      state: mongoose.connection.readyState,
-      states: {
-        0: 'disconnected',
-        1: 'connected', 
-        2: 'connecting',
-        3: 'disconnecting'
-      }
+// Database connection test endpoint
+app.get('/api/db-test', async (req, res) => {
+  try {
+    if (!dbConnected) {
+      return res.json({
+        success: false,
+        message: 'Database not connected',
+        error: 'Check MongoDB Atlas configuration'
+      });
     }
-  });
+
+    // Try to execute a simple query
+    const mongoose = require('mongoose');
+    const adminDb = mongoose.connection.db.admin();
+    const dbInfo = await adminDb.serverInfo();
+    
+    res.json({
+      success: true,
+      message: 'Database connection test successful',
+      database: {
+        connected: true,
+        name: mongoose.connection.name,
+        host: mongoose.connection.host,
+        version: dbInfo.version
+      }
+    });
+    
+  } catch (error) {
+    res.json({
+      success: false,
+      message: 'Database test failed',
+      error: error.message
+    });
+  }
 });
 
-// Your original routes
+// Routes (will work only if DB connected)
 app.use('/api/auth', require('./routes/auth'));
-// app.use('/api/websites', require('./routes/websites'));
-// app.use('/api/monitor', require('./routes/monitor'));
-// app.use('/api/telegram', require('./routes/telegram'));
 
 app.get('/', (req, res) => {
   res.json({ 
     success: true, 
-    message: 'Stage 4: Database connection added',
-    database: dbConnected ? '✅ Connected' : '❌ Disconnected'
+    message: 'AI Website Monitoring API',
+    database: dbConnected ? '✅ Connected' : '❌ Disconnected - Check MongoDB Atlas',
+    instruction: dbConnected ? 'Ready to use' : 'Fix MongoDB Atlas configuration'
   });
 });
 
-console.log('✅ Stage 4 server setup completed');
+console.log('✅ Server setup completed');
 module.exports = app;
