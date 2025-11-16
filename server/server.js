@@ -1,15 +1,13 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const connectDB = require('./config/database');
 
-// Load environment variables
 dotenv.config();
 
 const app = express();
 
-console.log('🚀 Server Stage 2: Adding Routes...');
-console.log('MONGODB_URI:', !!process.env.MONGODB_URI);
-console.log('JWT_SECRET:', !!process.env.JWT_SECRET);
+console.log('🚀 Server starting with improved DB handling...');
 
 // Middleware
 app.use(cors({
@@ -23,29 +21,30 @@ app.use(cors({
 
 app.use(express.json());
 
-// Health check
+// Health check without DB dependency
 app.get('/health', (req, res) => {
   res.json({ 
     success: true, 
-    message: 'Server is healthy! ✅',
-    timestamp: new Date().toISOString()
+    message: 'Server is running ✅',
+    timestamp: new Date().toISOString(),
+    database: 'Check connection separately'
   });
 });
 
-// Test route
+// Test route without DB
 app.get('/api/test', (req, res) => {
   res.json({ 
     success: true, 
     message: 'API test route working!',
-    stage: 'Stage 2: Ready for auth'
+    database: 'Not required for this route'
   });
 });
 
-// Add auth routes FIRST
+// Auth routes with DB connection check
 app.use('/api/auth', require('./routes/auth'));
 
-// Comment out other routes for now
-// app.use('/api/websites', require('./routes/websites'));
+// Other routes (comment out temporarily if needed)
+app.use('/api/websites', require('./routes/websites'));
 // app.use('/api/monitor', require('./routes/monitor'));
 // app.use('/api/telegram', require('./routes/telegram'));
 
@@ -53,11 +52,24 @@ app.get('/', (req, res) => {
   res.json({ 
     success: true, 
     message: 'AI Website Monitoring API 🚀',
-    status: 'Stage 2: Auth routes added',
-    nextStep: 'Test /api/auth endpoints'
+    status: 'Check MongoDB connection'
   });
 });
 
-console.log('✅ Stage 2 server setup completed');
+// Database connection with timeout handling
+const initializeDB = async () => {
+  try {
+    console.log('🔄 Attempting MongoDB connection...');
+    await connectDB();
+    console.log('✅ Database connected - all routes active');
+  } catch (error) {
+    console.error('❌ Database connection failed - some features unavailable');
+    // Server continues running without DB
+  }
+};
 
+// Start DB connection
+initializeDB();
+
+console.log('✅ Server exported successfully');
 module.exports = app;
