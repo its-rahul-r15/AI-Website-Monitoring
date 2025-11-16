@@ -1,77 +1,61 @@
 const express = require('express');
-const cors = require('cors');
 const dotenv = require('dotenv');
 
-// Load env vars
+// Load environment variables
 dotenv.config();
 
 const app = express();
 
-console.log('🔍 Environment Check:');
-console.log('MONGODB_URI:', process.env.MONGODB_URI ? '✅ Present' : '❌ Missing');
-console.log('JWT_SECRET:', process.env.JWT_SECRET ? '✅ Present' : '❌ Missing');
+// CRITICAL: Check if environment variables exist
+console.log('🚀 Server starting...');
+console.log('🔍 Checking environment variables:');
 
-// Middleware
-app.use(cors({
-  origin: [
-    'http://localhost:3000', 
-    'https://ai-website-monitoring.vercel.app',
-    'https://ai-website-monitoring-*.vercel.app'
-  ],
-  credentials: true,
-}));
+// Check each variable individually
+const mongodbUri = process.env.MONGODB_URI;
+const jwtSecret = process.env.JWT_SECRET;
 
+console.log('MONGODB_URI:', mongodbUri ? '✅ PRESENT' : '❌ MISSING');
+console.log('JWT_SECRET:', jwtSecret ? '✅ PRESENT' : '❌ MISSING');
+
+if (!mongodbUri) {
+  console.log('❌ MONGODB_URI is required but missing');
+}
+
+if (!jwtSecret) {
+  console.log('❌ JWT_SECRET is required but missing');
+}
+
+// Basic middleware
 app.use(express.json());
 
-// Health check without DB
+// Simple health check - NO DATABASE
+app.get('/', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'Server is working! 🚀',
+    database: mongodbUri ? 'Configured' : 'Not Configured',
+    auth: jwtSecret ? 'Configured' : 'Not Configured'
+  });
+});
+
 app.get('/health', (req, res) => {
   res.json({ 
     success: true, 
-    message: 'Server is running 🚀',
+    message: 'Health check OK ✅',
     timestamp: new Date().toISOString()
   });
 });
 
-// Lazy load routes with DB connection
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/websites', require('./routes/websites'));
-app.use('/api/monitor', require('./routes/monitor'));
-app.use('/api/telegram', require('./routes/telegram'));
-
-app.get('/', (req, res) => {
+// Test route without any dependencies
+app.get('/api/test', (req, res) => {
   res.json({ 
     success: true, 
-    message: 'AI Website Monitoring API is running on Vercel 🚀'
+    message: 'API is working!',
+    environment: process.env.NODE_ENV || 'development'
   });
 });
 
-// Initialize DB on first request (Lazy loading)
-let dbInitialized = false;
-const initializeDB = async () => {
-  if (!dbInitialized) {
-    try {
-      const connectDB = require('./config/database');
-      await connectDB();
-      console.log('✅ Database connected on first request');
-      
-      // Start cron jobs
-      const { setupCronJobs } = require('./utils/cronJobs');
-      setupCronJobs();
-      console.log('✅ Cron jobs started');
-      
-      dbInitialized = true;
-    } catch (error) {
-      console.error('❌ DB initialization failed:', error.message);
-    }
-  }
-};
+console.log('✅ Server setup completed successfully');
 
-// Middleware to initialize DB on API requests
-app.use('/api/*', async (req, res, next) => {
-  await initializeDB();
-  next();
-});
-
-console.log('✅ Server setup completed - DB will initialize on first request');
-
+// Export for Vercel
 module.exports = app;
